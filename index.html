@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dream Theater — Live Your Dreams</title>
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Raleway:ital,wght@0,300;0,400;0,600;1,300&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --void: #04020f;
+    --deep: #0b0520;
+    --iris: #4a1e8a;
+    --violet: #7c3aed;
+    --astral: #a78bfa;
+    --gold: #f5c842;
+    --crimson: #e11d48;
+    --teal: #14b8a6;
+    --mist: rgba(167,139,250,0.12);
+    --glass: rgba(255,255,255,0.04);
+  }
+
+  html, body {
+    height: 100%; overflow: hidden;
+    background: var(--void);
+    color: #e9e4ff;
+    font-family: 'Raleway', sans-serif;
+  }
+
+  /* ── DREAM CANVAS ── */
+  #dreamCanvas {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    z-index: 0;
+  }
+
+  /* ── PARTICLES ── */
+  #particleCanvas {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 1;
+  }
+
+  /* ── CAMERA FEED ── */
+  #cameraWrap {
+    position: fixed; top: 24px; right: 24px; z-index: 50;
+    width: 180px;
+  }
+  #videoEl {
+    width: 180px; height: 135px; border-radius: 16px;
+    object-fit: cover; transform: scaleX(-1);
+    border: 2px solid var(--astral);
+    box-shadow: 0 0 24px rgba(124,58,237,0.5);
+  }
+  #faceCanvas {
+    position: absolute; top: 0; left: 0;
+    width: 180px; height: 135px;
+    border-radius: 16px; transform: scaleX(-1);
+  }
+  #expressionBadge {
+    margin-top: 8px; text-align: center;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.1em;
+    padding: 6px 12px; border-radius: 20px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--mist);
+    text-transform: uppercase;
+    transition: all 0.4s;
+  }
+
+  /* ── STORY OVERLAY ── */
+  #storyOverlay {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column;
+    justify-content: flex-end; align-items: center;
+    padding-bottom: 100px;
+    pointer-events: none;
+  }
+  #storyText {
+    max-width: 680px; text-align: center;
+    padding: 24px 32px;
+    background: linear-gradient(135deg, rgba(10,2,30,0.82), rgba(74,30,138,0.45));
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(167,139,250,0.2);
+    border-radius: 20px;
+    font-size: 18px; font-style: italic; font-weight: 300;
+    line-height: 1.7; color: #e9e4ff;
+    text-shadow: 0 2px 12px rgba(74,30,138,0.8);
+    opacity: 0; transform: translateY(20px);
+    transition: opacity 0.6s, transform 0.6s;
+    pointer-events: none;
+  }
+  #storyText.visible { opacity: 1; transform: translateY(0); }
+
+  /* ── HEADER ── */
+  #header {
+    position: fixed; top: 24px; left: 24px; z-index: 50;
+  }
+  #header h1 {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 22px; font-weight: 700;
+    background: linear-gradient(120deg, #a78bfa, #f5c842, #a78bfa);
+    background-size: 200%;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    animation: shimmer 4s linear infinite;
+  }
+  #header p {
+    font-size: 11px; letter-spacing: 0.15em; color: #9ca3af;
+    text-transform: uppercase; margin-top: 2px;
+  }
+  @keyframes shimmer { 0%{background-position:0%} 100%{background-position:200%} }
+
+  /* ── CONTROLS ── */
+  #controls {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    z-index: 50; display: flex; gap: 12px; align-items: center;
+  }
+  .btn {
+    padding: 10px 22px; border-radius: 30px; border: none; cursor: pointer;
+    font-family: 'Raleway', sans-serif; font-size: 13px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    transition: all 0.25s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--violet), var(--iris));
+    color: #fff; box-shadow: 0 0 20px rgba(124,58,237,0.5);
+  }
+  .btn-primary:hover { transform: scale(1.06); box-shadow: 0 0 30px rgba(124,58,237,0.8); }
+  .btn-secondary {
+    background: var(--glass); color: var(--astral);
+    border: 1px solid rgba(167,139,250,0.3);
+    backdrop-filter: blur(8px);
+  }
+  .btn-secondary:hover { background: rgba(167,139,250,0.1); }
+  .btn-danger {
+    background: linear-gradient(135deg, #be123c, #9f1239);
+    color: #fff;
+  }
+
+  /* ── DREAM LOG ── */
+  #dreamLog {
+    position: fixed; left: 24px; bottom: 24px; z-index: 50;
+    width: 260px; max-height: 200px;
+    display: none; flex-direction: column; gap: 6px;
+    overflow-y: auto;
+  }
+  #dreamLog.open { display: flex; }
+  #dreamLog h3 {
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--astral); margin-bottom: 4px;
+  }
+  .log-entry {
+    padding: 8px 12px; border-radius: 10px;
+    background: rgba(10,2,30,0.7); border-left: 2px solid var(--violet);
+    font-size: 12px; line-height: 1.5; color: #c4b5fd;
+    backdrop-filter: blur(8px);
+  }
+  .log-entry .log-meta {
+    font-size: 10px; color: #6b7280; margin-bottom: 2px; text-transform: uppercase;
+  }
+
+  /* ── STATUS ── */
+  #status {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    z-index: 100; text-align: center; pointer-events: none;
+  }
+  #statusText {
+    font-family: 'Cinzel Decorative', serif; font-size: 16px;
+    color: var(--astral); letter-spacing: 0.1em;
+    text-shadow: 0 0 30px rgba(167,139,250,0.6);
+  }
+  #statusSpinner {
+    width: 40px; height: 40px; margin: 16px auto 0;
+    border: 2px solid rgba(167,139,250,0.2);
+    border-top-color: var(--astral);
+    border-radius: 50%; animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── SCENE CHARACTER SVGs ── */
+  .dream-char {
+    position: absolute; bottom: 0; pointer-events: none;
+    opacity: 0; transition: opacity 1.2s;
+  }
+  .dream-char.visible { opacity: 1; }
+
+  /* expression color map */
+  .badge-happy    { color: var(--gold); border-color: rgba(245,200,66,0.4); }
+  .badge-sad      { color: #93c5fd; border-color: rgba(147,197,253,0.4); }
+  .badge-angry    { color: var(--crimson); border-color: rgba(225,29,72,0.4); }
+  .badge-fearful  { color: #a78bfa; border-color: rgba(167,139,250,0.5); }
+  .badge-disgusted{ color: var(--teal); border-color: rgba(20,184,166,0.4); }
+  .badge-surprised{ color: #fb923c; border-color: rgba(251,146,60,0.4); }
+  .badge-neutral  { color: #9ca3af; border-color: rgba(156,163,175,0.3); }
+
+  #logToggle {
+    position: fixed; left: 24px; bottom: 24px; z-index: 51;
+  }
+
+  /* ── RECORD DOT ── */
+  #recDot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--crimson); display: inline-block;
+    animation: pulse 1.2s ease infinite; margin-right: 6px;
+    vertical-align: middle;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
+</style>
+</head>
+<body>
+
+<canvas id="dreamCanvas"></canvas>
+<canvas id="particleCanvas"></canvas>
+
+<!-- Header -->
+<div id="header">
+  <h1>Dream Theater</h1>
+  <p>Your face writes the story</p>
+</div>
+
+<!-- Camera -->
+<div id="cameraWrap">
+  <div style="position:relative">
+    <video id="videoEl" autoplay muted playsinline></video>
+    <canvas id="faceCanvas"></canvas>
+  </div>
+  <div id="expressionBadge" class="badge-neutral">😴 Awaiting face…</div>
+</div>
+
+<!-- Story -->
+<div id="storyOverlay">
+  <div id="storyText"></div>
+</div>
+
+<!-- Status -->
+<div id="status">
+  <div id="statusText">Loading Dream Models…</div>
+  <div id="statusSpinner"></div>
+</div>
+
+<!-- Controls -->
+<div id="controls" style="display:none">
+  <span id="recDot"></span>
+  <button class="btn btn-secondary" id="logToggle" onclick="toggleLog()" style="position:static">📖 Dream Log</button>
+  <button class="btn btn-danger" onclick="clearLog()">Clear</button>
+</div>
+
+<!-- Dream Log -->
+<div id="dreamLog">
+  <h3>✦ Recorded Dreams</h3>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  DREAM THEATER ENGINE
+// ══════════════════════════════════════════════
+
+const dreamCanvas  = document.getElementById('dreamCanvas');
+const particleCanvas = document.getElementById('particleCanvas');
+const ctx  = dreamCanvas.getContext('2d');
+const pctx = particleCanvas.getContext('2d');
+const video = document.getElementById('videoEl');
+const faceCanvas = document.getElementById('faceCanvas');
+const faceCtx = faceCanvas.getContext('2d');
+
+let W, H, t = 0;
+let currentMood = 'neutral';
+let targetMood  = 'neutral';
+let moodBlend   = 0;
+let storyTimeout = null;
+let logOpen = false;
+let dreamLog = JSON.parse(localStorage.getItem('dreamLog') || '[]');
+let lastStory = '';
+let particles = [];
+let chars = [];
+let faceDetectionRunning = false;
+
+// ── resize ──
+function resize() {
+  W = dreamCanvas.width  = particleCanvas.width  = window.innerWidth;
+  H = dreamCanvas.height = particleCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ══════════════════════════════════════════════
+//  MOOD PALETTES & SCENES
+// ══════════════════════════════════════════════
+
+const MOODS = {
+  neutral: {
+    sky: ['#04020f','#0b0520','#1e0a3c'],
+    accent: '#4a1e8a',
+    stars: true, fog: false, rain: false, fire: false,
+    emoji: '😶', label: 'Dreaming',
+    badge: 'badge-neutral'
+  },
+  happy: {
+    sky: ['#0f2240','#1a4a6e','#c85a10','#f5c842'],
+    accent: '#f5c842',
+    stars: false, fog: true, rain: false, fire: false,
+    emoji: '😄', label: 'Joyful',
+    badge: 'badge-happy'
+  },
+  sad: {
+    sky: ['#06111f','#0e2237','#1b3a5c'],
+    accent: '#93c5fd',
+    stars: true, fog: true, rain: true, fire: false,
+    emoji: '😢', label: 'Melancholy',
+    badge: 'badge-sad'
+  },
+  angry: {
+    sky: ['#1a0000','#3d0a0a','#6b1a1a','#c0392b'],
+    accent: '#e11d48',
+    stars: false, fog: false, rain: false, fire: true,
+    emoji: '😠', label: 'Furious',
+    badge: 'badge-angry'
+  },
+  fearful: {
+    sky: ['#030010','#0d0029','#1a0050'],
+    accent: '#a78bfa',
+    stars: true, fog: true, rain: false, fire: false,
+    emoji: '😨', label: 'Terrified',
+    badge: 'badge-fearful'
+  },
+  disgusted: {
+    sky: ['#021208','#053015','#0a4a1f'],
+    accent: '#14b8a6',
+    stars: false, fog: true, rain: false, fire: false,
+    emoji: '🤢', label: 'Unnerved',
+    badge: 'badge-disgusted'
+  },
+  surprised: {
+    sky: ['#0f0035','#2a0070','#5900c8','#9d00ff'],
+    accent: '#fb923c',
+    stars: true, fog: false, rain: false, fire: false,
+    emoji: '😲', label: 'Astonished',
+    badge: 'badge-surprised'
+  }
+};
+
+// ══════════════════════════════════════════════
+//  STORY GENERATOR — uses Anthropic API
+// ══════════════════════════════════════════════
+
+async function generateStory(mood) {
+  const prompts = {
+    happy:     'A golden hero soars through amber clouds, laughing as sunflowers erupt from the earth below.',
+    sad:       'Rain falls in slow motion. A lone figure stands at the edge of a silver lake, whispering forgotten names.',
+    angry:     'A warrior bathed in flame tears through iron gates. The sky cracks open like a wound.',
+    fearful:   'Shadows peel from the walls and drift closer. Something enormous breathes behind the last door.',
+    disgusted: 'Ancient vines consume a forgotten city. Strange luminescent fungi pulse with each heartbeat.',
+    surprised: 'A portal tears open mid-air — a glowing figure steps through, eyes wide as twin moons.',
+    neutral:   'You drift between floating islands. Stars hum softly. The dream waits for your emotion.'
+  };
+
+  // Try Anthropic API for a richer story
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: `You are a poetic dream narrator. Write ONE immersive sentence (max 30 words) describing a vivid dream scene for the emotion: "${mood}". Be lyrical and cinematic. No quotes, no attribution.`
+        }]
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.content?.find(b => b.type === 'text')?.text?.trim();
+      if (text) return text;
+    }
+  } catch(e) {}
+
+  return prompts[mood] || prompts.neutral;
+}
+
+// ══════════════════════════════════════════════
+//  SCENE CHARACTERS (SVG inline)
+// ══════════════════════════════════════════════
+
+const CHARACTER_SVG = {
+  hero: `<svg viewBox="0 0 120 220" xmlns="http://www.w3.org/2000/svg" width="120" height="220">
+    <ellipse cx="60" cy="30" rx="18" ry="22" fill="#f5c842" opacity=".9"/>
+    <rect x="42" y="52" width="36" height="70" rx="8" fill="#c85a10"/>
+    <line x1="42" y1="65" x2="10" y2="110" stroke="#c85a10" stroke-width="10" stroke-linecap="round"/>
+    <line x1="78" y1="65" x2="110" y2="80" stroke="#c85a10" stroke-width="10" stroke-linecap="round"/>
+    <line x1="110" y1="80" x2="130" y2="60" stroke="#f5c842" stroke-width="4" stroke-linecap="round"/>
+    <rect x="48" y="122" width="12" height="70" rx="4" fill="#a04000"/>
+    <rect x="62" y="122" width="12" height="70" rx="4" fill="#a04000"/>
+    <ellipse cx="54" cy="25" rx="4" ry="4" fill="#1a0a00"/>
+    <ellipse cx="66" cy="25" rx="4" ry="4" fill="#1a0a00"/>
+    <path d="M52 38 Q60 46 68 38" stroke="#1a0a00" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M30 10 Q60 -10 90 10" stroke="#f5c842" stroke-width="3" fill="rgba(245,200,66,0.2)"/>
+  </svg>`,
+
+  monster: `<svg viewBox="0 0 160 240" xmlns="http://www.w3.org/2000/svg" width="160" height="240">
+    <ellipse cx="80" cy="45" rx="38" ry="42" fill="#1a0050"/>
+    <polygon points="42,10 52,30 42,30" fill="#4a1e8a"/>
+    <polygon points="118,10 108,30 118,30" fill="#4a1e8a"/>
+    <polygon points="62,5 68,26 58,26" fill="#4a1e8a"/>
+    <polygon points="98,5 92,26 102,26" fill="#4a1e8a"/>
+    <ellipse cx="64" cy="40" rx="10" ry="10" fill="#e11d48"/>
+    <ellipse cx="96" cy="40" rx="10" ry="10" fill="#e11d48"/>
+    <ellipse cx="64" cy="40" rx="5" ry="7" fill="#000"/>
+    <ellipse cx="96" cy="40" rx="5" ry="7" fill="#000"/>
+    <path d="M52 60 Q80 80 108 60" stroke="#7c3aed" stroke-width="3" fill="rgba(124,58,237,0.2)"/>
+    <polygon points="58,68 65,56 72,68" fill="#e11d48"/>
+    <polygon points="72,68 79,56 86,68" fill="#e11d48"/>
+    <polygon points="86,68 93,56 100,68" fill="#e11d48"/>
+    <rect x="50" y="87" width="60" height="100" rx="10" fill="#0d0029"/>
+    <line x1="50" y1="100" x2="5" y2="140" stroke="#0d0029" stroke-width="14" stroke-linecap="round"/>
+    <line x1="110" y1="100" x2="155" y2="130" stroke="#0d0029" stroke-width="14" stroke-linecap="round"/>
+    <rect x="58" y="187" width="18" height="53" rx="5" fill="#0a001e"/>
+    <rect x="82" y="187" width="18" height="53" rx="5" fill="#0a001e"/>
+  </svg>`,
+
+  spirit: `<svg viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" width="100" height="200">
+    <defs>
+      <radialGradient id="sg" cx="50%" cy="40%" r="60%">
+        <stop offset="0%" stop-color="#c4b5fd" stop-opacity=".9"/>
+        <stop offset="100%" stop-color="#4a1e8a" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <path d="M20 100 Q10 130 20 160 Q30 190 50 200 Q70 190 80 160 Q90 130 80 100 Q70 60 50 20 Q30 60 20 100Z" fill="url(#sg)"/>
+    <ellipse cx="40" cy="80" rx="7" ry="9" fill="rgba(10,0,30,0.7)"/>
+    <ellipse cx="60" cy="80" rx="7" ry="9" fill="rgba(10,0,30,0.7)"/>
+    <path d="M38 100 Q50 110 62 100" stroke="rgba(10,0,30,0.5)" stroke-width="2" fill="none"/>
+  </svg>`,
+
+  sage: `<svg viewBox="0 0 120 230" xmlns="http://www.w3.org/2000/svg" width="120" height="230">
+    <ellipse cx="60" cy="30" rx="16" ry="18" fill="#d4a373"/>
+    <rect x="44" y="48" width="32" height="80" rx="6" fill="#14b8a6"/>
+    <line x1="44" y1="60" x2="15" y2="105" stroke="#14b8a6" stroke-width="9" stroke-linecap="round"/>
+    <line x1="76" y1="60" x2="105" y2="95" stroke="#14b8a6" stroke-width="9" stroke-linecap="round"/>
+    <line x1="105" y1="95" x2="120" y2="50" stroke="#14b8a6" stroke-width="4"/>
+    <circle cx="120" cy="48" r="8" fill="#14b8a6" opacity=".6"/>
+    <rect x="50" y="128" width="10" height="72" rx="4" fill="#0d9488"/>
+    <rect x="62" y="128" width="10" height="72" rx="4" fill="#0d9488"/>
+    <path d="M44 20 Q60 5 76 20" stroke="#d4a373" stroke-width="8" fill="#8b6c42"/>
+    <ellipse cx="52" cy="27" rx="3" ry="3" fill="#3a2000"/>
+    <ellipse cx="68" cy="27" rx="3" ry="3" fill="#3a2000"/>
+    <path d="M54 38 Q60 43 66 38" stroke="#3a2000" stroke-width="1.5" fill="none"/>
+  </svg>`,
+
+  phoenix: `<svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" width="200" height="180">
+    <defs>
+      <radialGradient id="pg" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#f5c842"/>
+        <stop offset="60%" stop-color="#e11d48"/>
+        <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <ellipse cx="100" cy="90" rx="80" ry="60" fill="url(#pg)" opacity=".8"/>
+    <path d="M100 90 L20 30 Q60 70 100 90" fill="#f5c842" opacity=".8"/>
+    <path d="M100 90 L180 30 Q140 70 100 90" fill="#e11d48" opacity=".8"/>
+    <path d="M100 90 L10 120 Q55 95 100 90" fill="#fb923c" opacity=".6"/>
+    <path d="M100 90 L190 120 Q145 95 100 90" fill="#f5c842" opacity=".6"/>
+    <ellipse cx="100" cy="75" rx="18" ry="14" fill="#f5c842"/>
+    <polygon points="100,55 94,68 106,68" fill="#e11d48"/>
+    <ellipse cx="93" cy="72" rx="4" ry="4" fill="#1a0a00"/>
+    <ellipse cx="107" cy="72" rx="4" ry="4" fill="#1a0a00"/>
+  </svg>`,
+
+  wraith: `<svg viewBox="0 0 120 220" xmlns="http://www.w3.org/2000/svg" width="120" height="220">
+    <defs>
+      <radialGradient id="wg" cx="50%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="#a78bfa" stop-opacity=".7"/>
+        <stop offset="100%" stop-color="#030010" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <path d="M20,50 Q60,0 100,50 L110,180 Q90,220 60,220 Q30,220 10,180Z" fill="url(#wg)"/>
+    <path d="M10,180 Q5,195 15,200 Q10,195 20,200 Q15,190 25,200" stroke="#a78bfa" stroke-width="2" fill="none"/>
+    <path d="M90,180 Q95,200 105,200 Q100,190 110,200 Q108,195 115,198" stroke="#a78bfa" stroke-width="2" fill="none"/>
+    <ellipse cx="47" cy="65" rx="8" ry="10" fill="#e11d48" opacity=".8"/>
+    <ellipse cx="73" cy="65" rx="8" ry="10" fill="#e11d48" opacity=".8"/>
+    <path d="M42,90 Q60,84 78,90" stroke="#a78bfa" stroke-width="2" fill="none"/>
+    <path d="M35,30 Q45,10 60,30" stroke="#a78bfa" stroke-width="20" stroke-linecap="round" fill="none" opacity=".3"/>
+  </svg>`
+};
+
+const MOOD_CHARS = {
+  surprised: 'hero',
+  fearful:   'wraith',
+  angry:     'phoenix',
+  sad:       'spirit',
+  happy:     'hero',
+  disgusted: 'sage',
+  neutral:   'spirit'
+};
+
+// ══════════════════════════════════════════════
+//  PARTICLE SYSTEM
+// ══════════════════════════════════════════════
+
+function spawnParticles(mood) {
+  const m = MOODS[mood];
+  const count = mood === 'angry' ? 40 : mood === 'surprised' ? 60 : 25;
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * (mood === 'angry' ? 4 : 1.5),
+      vy: mood === 'sad' ? Math.random() * 2 + 0.5 : (Math.random() - 0.5) * 2 - (mood === 'happy' ? 1 : 0),
+      r: Math.random() * 3 + 1,
+      color: m.accent,
+      life: 1, decay: Math.random() * 0.008 + 0.003,
+      twinkle: mood !== 'angry' && mood !== 'sad'
+    });
+  }
+}
+
+function updateParticles() {
+  pctx.clearRect(0, 0, W, H);
+  particles = particles.filter(p => p.life > 0);
+  for (const p of particles) {
+    p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+    if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+    if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+    const a = p.twinkle ? p.life * (0.5 + 0.5 * Math.sin(t * 3 + p.x)) : p.life;
+    pctx.beginPath();
+    pctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    pctx.fillStyle = p.color + Math.floor(a * 255).toString(16).padStart(2, '0');
+    pctx.fill();
+  }
+}
+
+// ══════════════════════════════════════════════
+//  DRAW BACKGROUND SCENE
+// ══════════════════════════════════════════════
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function hexToRgb(h) {
+  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
+  return r ? [parseInt(r[1],16), parseInt(r[2],16), parseInt(r[3],16)] : [0,0,0];
+}
+function lerpColor(c1, c2, t) {
+  const [r1,g1,b1] = hexToRgb(c1), [r2,g2,b2] = hexToRgb(c2);
+  return `rgb(${Math.round(lerp(r1,r2,t))},${Math.round(lerp(g1,g2,t))},${Math.round(lerp(b1,b2,t))})`;
+}
+
+function drawScene() {
+  const mood = MOODS[currentMood];
+  const sky  = mood.sky;
+
+  // Sky gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  sky.forEach((c, i) => grad.addColorStop(i / (sky.length - 1), c));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Nebula clouds
+  drawNebula(mood);
+
+  // Moon / sun
+  if (currentMood === 'happy') drawSun();
+  else drawMoon();
+
+  // Ground layer
+  drawGround(mood);
+
+  // Rain
+  if (mood.rain) drawRain();
+
+  // Fire
+  if (mood.fire) drawFire();
+
+  // Character
+  drawCharSVG(mood);
+}
+
+function drawNebula(mood) {
+  const cols = [mood.accent, '#0b0520'];
+  for (let i = 0; i < 5; i++) {
+    const x = W * (0.1 + i * 0.2) + Math.sin(t * 0.3 + i) * 60;
+    const y = H * 0.3 + Math.cos(t * 0.2 + i) * 40;
+    const r = 120 + i * 40;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, mood.accent + '28');
+    g.addColorStop(1, 'transparent');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+  }
+}
+
+function drawMoon() {
+  const mx = W * 0.15, my = H * 0.18;
+  const g = ctx.createRadialGradient(mx, my, 0, mx, my, 55);
+  g.addColorStop(0, '#e9e4ff'); g.addColorStop(1, 'rgba(167,139,250,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(mx, my, 55, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#e9e4ff'; ctx.beginPath(); ctx.arc(mx, my, 30, 0, Math.PI*2); ctx.fill();
+}
+
+function drawSun() {
+  const sx = W * 0.15, sy = H * 0.2;
+  const rays = 12;
+  ctx.save();
+  ctx.translate(sx, sy);
+  for (let i = 0; i < rays; i++) {
+    ctx.rotate(Math.PI * 2 / rays);
+    ctx.fillStyle = 'rgba(245,200,66,0.15)';
+    ctx.beginPath(); ctx.ellipse(0, -60, 8, 40, 0, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+  const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, 80);
+  g.addColorStop(0, '#f5c842'); g.addColorStop(0.4, '#fb923c60'); g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, 80, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#f5c842'; ctx.beginPath(); ctx.arc(sx, sy, 28, 0, Math.PI*2); ctx.fill();
+}
+
+function drawGround(mood) {
+  const g = ctx.createLinearGradient(0, H * 0.7, 0, H);
+  g.addColorStop(0, 'transparent');
+  g.addColorStop(1, mood.accent + '40');
+  ctx.fillStyle = g; ctx.fillRect(0, H * 0.7, W, H * 0.3);
+
+  // Horizon silhouette
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.beginPath(); ctx.moveTo(0, H);
+  const pts = 20;
+  for (let i = 0; i <= pts; i++) {
+    const x = (i / pts) * W;
+    const y = H * 0.75 + Math.sin(t * 0.4 + i * 0.8) * 15
+              + Math.sin(i * 0.5) * 40
+              + (currentMood === 'angry' ? Math.sin(t * 2 + i) * 20 : 0);
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+}
+
+function drawRain() {
+  ctx.strokeStyle = 'rgba(147,197,253,0.3)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 80; i++) {
+    const x = (i * 37 + t * 60) % W;
+    const y = (i * 71 + t * 120) % H;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 4, y + 20); ctx.stroke();
+  }
+}
+
+function drawFire() {
+  for (let i = 0; i < 6; i++) {
+    const x = W * (0.1 + i * 0.15) + Math.sin(t + i) * 20;
+    const bh = 80 + Math.sin(t * 3 + i) * 30;
+    const g = ctx.createRadialGradient(x, H - 20, 0, x, H - 20, bh);
+    g.addColorStop(0, '#f5c842'); g.addColorStop(0.4, '#e11d48'); g.addColorStop(1, 'transparent');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, H - 20, bh, 0, Math.PI*2); ctx.fill();
+  }
+}
+
+// SVG character drawn via offscreen img
+const charImgs = {};
+function drawCharSVG(mood) {
+  const key = MOOD_CHARS[currentMood] || 'spirit';
+  const svg = CHARACTER_SVG[key];
+  if (!svg) return;
+
+  if (!charImgs[key]) {
+    const img = new Image();
+    const blob = new Blob([svg], {type: 'image/svg+xml'});
+    img.src = URL.createObjectURL(blob);
+    charImgs[key] = img;
+    img.onload = () => {};
+  }
+  const img = charImgs[key];
+  if (!img.complete || !img.naturalWidth) return;
+  const scale = 1.5 + Math.sin(t * 0.8) * 0.05;
+  const cw = img.naturalWidth * scale;
+  const ch = img.naturalHeight * scale;
+  const cx = W / 2 - cw / 2;
+  const cy = H - ch - 40 + Math.sin(t * 0.5) * 8;
+  ctx.save(); ctx.globalAlpha = 0.9;
+  ctx.drawImage(img, cx, cy, cw, ch);
+  ctx.restore();
+
+  // Glow under character
+  const g = ctx.createRadialGradient(W/2, H - 30, 0, W/2, H - 30, 120);
+  g.addColorStop(0, mood.accent + '50'); g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g; ctx.fillRect(0, H - 150, W, 150);
+}
+
+// ══════════════════════════════════════════════
+//  ANIMATION LOOP
+// ══════════════════════════════════════════════
+
+function loop() {
+  t += 0.016;
+  drawScene();
+  updateParticles();
+  requestAnimationFrame(loop);
+}
+
+// ══════════════════════════════════════════════
+//  FACE API SETUP
+// ══════════════════════════════════════════════
+
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@latest/model';
+
+async function setupCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
+    video.srcObject = stream;
+    return new Promise(res => video.onloadeddata = res);
+  } catch(e) {
+    document.getElementById('statusText').textContent = 'Camera access denied';
+    throw e;
+  }
+}
+
+async function loadModels() {
+  document.getElementById('statusText').textContent = 'Loading dream models…';
+  try {
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
+    ]);
+  } catch(e) {
+    // fallback CDN
+    const CDN2 = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(CDN2),
+      faceapi.nets.faceExpressionNet.loadFromUri(CDN2)
+    ]);
+  }
+}
+
+const EXPR_MAP = {
+  happy:'happy', sad:'sad', angry:'angry',
+  fearful:'fearful', disgusted:'disgusted', surprised:'surprised', neutral:'neutral'
+};
+const EXPR_LABELS = {
+  happy:'😄 Joyful', sad:'😢 Melancholy', angry:'😠 Furious',
+  fearful:'😨 Terrified', disgusted:'🤢 Unnerved',
+  surprised:'😲 Astonished', neutral:'😶 Dreaming'
+};
+
+let lastMoodChange = 0;
+let lastStoryMood = '';
+
+async function detectLoop() {
+  if (!faceDetectionRunning) return;
+  faceCanvas.width  = video.videoWidth  || 180;
+  faceCanvas.height = video.videoHeight || 135;
+
+  try {
+    const det = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({inputSize:224}))
+      .withFaceExpressions();
+
+    if (det) {
+      const exprs = det.expressions;
+      const top = Object.entries(exprs).sort((a,b)=>b[1]-a[1])[0][0];
+      const newMood = EXPR_MAP[top] || 'neutral';
+
+      // Update badge
+      const badge = document.getElementById('expressionBadge');
+      badge.textContent = EXPR_LABELS[newMood] || '😶 Dreaming';
+      badge.className = 'badge-' + newMood;
+
+      if (newMood !== currentMood) {
+        currentMood = newMood;
+        spawnParticles(newMood);
+
+        const now = Date.now();
+        if (now - lastMoodChange > 4000 && newMood !== lastStoryMood) {
+          lastMoodChange = now; lastStoryMood = newMood;
+          triggerStory(newMood);
+        }
+      }
+
+      // Draw face box
+      faceCtx.clearRect(0, 0, faceCanvas.width, faceCanvas.height);
+      const scaleX = faceCanvas.width  / (video.videoWidth  || 180);
+      const scaleY = faceCanvas.height / (video.videoHeight || 135);
+      const box = det.detection.box;
+      faceCtx.strokeStyle = MOODS[currentMood]?.accent || '#a78bfa';
+      faceCtx.lineWidth = 2;
+      faceCtx.strokeRect(box.x * scaleX, box.y * scaleY, box.width * scaleX, box.height * scaleY);
+    }
+  } catch(e) {}
+
+  setTimeout(detectLoop, 200);
+}
+
+async function triggerStory(mood) {
+  const storyEl = document.getElementById('storyText');
+  storyEl.classList.remove('visible');
+  const story = await generateStory(mood);
+  lastStory = story;
+  storyEl.textContent = story;
+  storyEl.classList.add('visible');
+
+  // Save to log
+  dreamLog.unshift({ mood, text: story, time: new Date().toLocaleTimeString() });
+  if (dreamLog.length > 20) dreamLog.pop();
+  localStorage.setItem('dreamLog', JSON.stringify(dreamLog));
+  renderLog();
+
+  if (storyTimeout) clearTimeout(storyTimeout);
+  storyTimeout = setTimeout(() => storyEl.classList.remove('visible'), 7000);
+}
+
+// ══════════════════════════════════════════════
+//  DREAM LOG UI
+// ══════════════════════════════════════════════
+
+function renderLog() {
+  const el = document.getElementById('dreamLog');
+  const entries = el.querySelectorAll('.log-entry');
+  entries.forEach(e => e.remove());
+  dreamLog.forEach(d => {
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    div.innerHTML = `<div class="log-meta">${d.time} · ${(EXPR_LABELS[d.mood]||d.mood)}</div>${d.text}`;
+    el.appendChild(div);
+  });
+}
+
+function toggleLog() {
+  logOpen = !logOpen;
+  const el = document.getElementById('dreamLog');
+  el.classList.toggle('open', logOpen);
+  document.getElementById('logToggle').textContent = logOpen ? '✕ Close Log' : '📖 Dream Log';
+}
+
+function clearLog() {
+  dreamLog = []; localStorage.removeItem('dreamLog');
+  renderLog();
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+
+async function init() {
+  loop(); // Start rendering immediately
+
+  try {
+    await setupCamera();
+    document.getElementById('statusText').textContent = 'Loading models…';
+    await loadModels();
+  } catch(e) {
+    document.getElementById('status').style.display = 'none';
+    document.getElementById('controls').style.display = 'flex';
+    return;
+  }
+
+  // Hide status
+  document.getElementById('status').style.display = 'none';
+  document.getElementById('controls').style.display = 'flex';
+
+  // Render saved log
+  renderLog();
+
+  // Start detection
+  faceDetectionRunning = true;
+  detectLoop();
+
+  // Initial story
+  setTimeout(() => triggerStory('neutral'), 1000);
+}
+
+init();
+</script>
+</body>
+</html>
